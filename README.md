@@ -5,7 +5,7 @@
 
 最大的特点是 **BYOK（Bring Your Own Key，自带 Key）**：服务器不保存任何 API Key，
 每位访问者在自己的浏览器里填自己的 Key。所以这个网址可以直接分享给别人用 ——
-大家各花各的额度，你不用为别人的调用付钱，服务器被拖库也不会泄露任何人的密钥。
+大家各花各的额度，你不用为别人的调用付钱。
 
 ## 快速开始
 
@@ -85,51 +85,6 @@ Key 存进浏览器 localStorage。**下次打开同一个网址会自动读取�
 - 表单有改动但未保存时，标题旁会显示「● 未保存」
 - 预设保存在浏览器 localStorage；「清除本机保存的 Key」可以一键抹掉所有 Key
 
-## 发布部署
-
-### 方式一：只给自己的局域网用
-
-```bash
-start_public.bat          # 等价于 python serve_public.py
-```
-
-用 `ipconfig` 查本机内网 IP，同一局域网的人访问 `http://你的内网IP:8000` 即可。
-
-### 方式二：自己服务器 / 云主机（Windows 或 Linux 自建）
-
-用 `waitress`（已在 `requirements.txt` 里）：
-
-```bash
-python serve_public.py          # 默认 0.0.0.0:8000
-set PORT=8080 && python serve_public.py
-```
-
-生产环境建议前面再挂一层 Nginx 做 HTTPS，并把 `X-Forwarded-For` 透传过来。
-
-### 方式三：托管平台（Render / Railway / Zeabur 等）
-
-平台一般用 gunicorn，命令填：
-
-```bash
-gunicorn -k gthread --threads 8 -b 0.0.0.0:$PORT app:app
-```
-
-（`Procfile` 里写 `web: gunicorn -k gthread --threads 8 -b 0.0.0.0:$PORT app:app`）
-
-> 注意：流式输出（SSE）需要多线程 worker，别用默认的 sync worker，否则并发一多就卡住。
-> 另外 `uploads/` 是本地磁盘目录，容器重启会丢、多实例之间不共享 —— 图片文件建议改用对象存储。
-
-## 上线前检查清单
-
-- [x] **调试模式默认关闭**（`FLASK_DEBUG` 不设就是 `0`）。调试模式带交互式调试器，
-      暴露在公网等于把服务器交出去。程序里加了保护：一旦调试模式 + 对外监听，会直接拒绝启动
-- [x] **默认预设为空**，访客必须填自己的 Key 才能聊天
-- [x] **全站不含任何密钥**，`git push` 无需脱敏
-- [x] **简易限流**：每个来源 IP 每分钟最多 40 次聊天请求（`app.py` 里的
-      `RATE_LIMIT_WINDOW` / `RATE_LIMIT_MAX`），防止有人把站点当免费代理刷
-- [x] 请求体上限 100MB（图片以 base64 随请求上传，防止超大请求打满内存）
-- [ ] 建议：`uploads/` 里的文件任何人凭 URL 都能下载，别传敏感材料
-- [ ] 建议：正式上线走 HTTPS，否则 Key 在网络上是明文传输的
 
 ## 关于「思考过程」
 
