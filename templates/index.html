@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 聊天助手</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Markdown 渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 代码高亮 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/core.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 AI 助手</h2>
+                <p class="sidebar-subtitle">用你自己的 API Key</p>
+            </div>
+            <button class="new-chat-btn" id="newChatBtn">
+                <span class="icon">＋</span> 新建对话
+            </button>
+            <div class="chat-history" id="chatHistory">
+                <!-- 对话历史列表 -->
+            </div>
+            <div class="sidebar-footer">
+                <p class="model-info" id="modelInfo">⚠️ 未配置 API Key · 点下面「设置」</p>
+                <button class="settings-btn" id="settingsBtn" title="配置大模型">
+                    ⚙️ 设置
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主聊天区域 -->
+        <main class="chat-main">
+            <!-- 顶栏 -->
+            <header class="chat-header">
+                <button class="toggle-sidebar-btn" id="toggleSidebarBtn" title="切换侧边栏">
+                    ☰
+                </button>
+                <h1 id="conversationTitle">新对话</h1>
+                <button class="toggle-question-panel-btn" id="toggleQuestionPanelBtn" title="切换问题收集栏">
+                    📝
+                </button>
+                <button class="clear-chat-btn" id="clearChatBtn" title="清空当前对话">
+                    🗑️
+                </button>
+            </header>
+
+            <!-- 消息列表 -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">🤖</div>
+                    <h2>你好！我是 AI 助手</h2>
+                    <p>我可以回答你的问题、帮你写代码、分析图片等。</p>
+                    <p class="welcome-note">首次使用需要填一次你自己的 API Key，之后这台电脑会自动记住。</p>
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip" data-prompt="请用Python写一个快速排序算法">💻 写代码</button>
+                        <button class="suggestion-chip" data-prompt="请解释一下什么是机器学习">📚 学知识</button>
+                        <button class="suggestion-chip" data-prompt="帮我写一封正式的商务邮件">✉️ 写邮件</button>
+                        <button class="suggestion-chip" data-prompt="今天心情不太好，能聊聊天吗？">💬 聊聊天</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="input-area">
+                <!-- 多图预览区 -->
+                <div class="image-preview-area" id="imagePreviewArea" style="display: none;">
+                    <div class="preview-header">
+                        <span class="preview-count">已选 <strong id="imageCount">0</strong>/50 张图片</span>
+                        <button class="clear-all-images-btn" id="clearAllImagesBtn">全部清除</button>
+                    </div>
+                    <div class="preview-grid" id="previewGrid">
+                        <!-- 动态生成图片缩略图 -->
+                    </div>
+                </div>
+
+                <!-- 文件预览区 -->
+                <div class="file-preview-area" id="filePreviewArea" style="display: none;">
+                    <div class="preview-header">
+                        <span class="preview-count">已选 <strong id="fileCount">0</strong>/10 个文件</span>
+                        <button class="clear-all-images-btn" id="clearAllFilesBtn">全部清除</button>
+                    </div>
+                    <div class="file-preview-grid" id="filePreviewGrid">
+                        <!-- 动态生成文件预览卡片 -->
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <button class="upload-btn" id="uploadBtn" title="上传图片（最多50张）">
+                        📷
+                    </button>
+                    <button class="upload-btn file-upload-btn" id="fileUploadBtn" title="上传文件（最多10个，每个≤10MB）">
+                        📎
+                    </button>
+                    <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+                    <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.ppt,.pptx,.txt,.csv,.bat,.cmd,.py,.ahk" multiple style="display: none;">
+                    <textarea
+                        id="messageInput"
+                        placeholder="输入你的问题... (Shift+Enter 换行, Enter 发送)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" title="发送">
+                        ➤
+                    </button>
+                </div>
+                <p class="input-hint">Enter 发送 | Shift+Enter 换行 | 支持最多50张图片和10个文件 | 可粘贴/拖拽</p>
+            </div>
+        </main>
+
+        <!-- 【修复3】右侧问题收集栏 -->
+        <aside class="question-panel" id="questionPanel">
+            <div class="question-panel-header">
+                <h3>📝 问题列表</h3>
+                <span class="question-count" id="questionCount">0</span>
+            </div>
+            <div class="question-list" id="questionList">
+                <div class="question-empty">暂无提问</div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 首次配置向导 — 第一次打开时填自己的 API Key -->
+    <div class="setup-overlay" id="setupOverlay" style="display: none;">
+        <div class="setup-modal">
+            <div class="setup-header">
+                <h2>👋 先配置一下你的 API Key</h2>
+                <button class="settings-close-btn" id="setupCloseBtn" title="稍后再说">✕</button>
+            </div>
+            <div class="setup-body">
+                <p class="setup-lead">
+                    这个助手不带内置额度，<strong>用你自己的 Key、花你自己的额度</strong>，
+                    问多少都不受别人影响。Key 只保存在你自己这台电脑的浏览器里，不会上传到服务器。
+                </p>
+
+                <div class="setup-steps">
+                    <div class="setup-step">
+                        <span class="setup-step-num">1</span>
+                        <div>
+                            <p class="setup-step-title">去 DeepSeek 官网领一个 API Key</p>
+                            <p class="setup-step-desc">
+                                打开
+                                <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com</a>
+                                → 注册并登录 → 左侧「API keys」→ 创建一个，复制那串
+                                <code>sk-</code> 开头的字符。（需要先充值几块钱才能调用）
+                            </p>
+                        </div>
+                    </div>
+                    <div class="setup-step">
+                        <span class="setup-step-num">2</span>
+                        <div>
+                            <p class="setup-step-title">粘贴到下面，点「开始聊天」</p>
+                            <p class="setup-step-desc">
+                                地址、模型名都已经帮你填好了，不用改。下次再打开这个页面会自动记住。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setup-field">
+                    <label for="setupApiKeyInput">API Key</label>
+                    <input type="password" id="setupApiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
+                </div>
+
+                <div class="setup-template-row" id="setupTemplateRow">
+                    <span class="setup-template-label">换个来源：</span>
+                    <button type="button" class="setup-template-btn" data-provider="openai">🐋 DeepSeek</button>
+                    <button type="button" class="setup-template-btn" data-provider="ark">🫘 豆包（火山方舟）</button>
+                </div>
+
+                <details class="setup-advanced">
+                    <summary>高级选项（自定义地址 / 模型 / 协议）</summary>
+                    <div class="setup-adv-body">
+                        <div class="setup-field">
+                            <label for="setupApiUrlInput">API 地址</label>
+                            <input type="text" id="setupApiUrlInput">
+                        </div>
+                        <div class="setup-field">
+                            <label for="setupModelNameInput">模型名称</label>
+                            <input type="text" id="setupModelNameInput">
+                        </div>
+                        <div class="setup-field">
+                            <label for="setupProviderSelect">接口协议</label>
+                            <select id="setupProviderSelect">
+                                <option value="">自动识别（按地址判断）</option>
+                                <option value="openai">OpenAI 兼容 · chat/completions</option>
+                                <option value="ark">火山方舟 Ark · Responses</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+
+                <p class="setup-error" id="setupError" style="display: none;"></p>
+                <p class="setup-note">
+                    💡 在网吧或别人电脑上用完之后，记得回「⚙️ 设置」里点「清除本机保存的 Key」。
+                </p>
+            </div>
+            <div class="setup-footer">
+                <button class="setup-primary-btn" id="setupStartBtn">开始聊天</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 — 预设管理 -->
+    <div class="settings-overlay" id="settingsOverlay" style="display: none;">
+        <div class="settings-modal">
+            <div class="settings-header">
+                <h2>⚙️ 大模型配置</h2>
+                <button class="settings-close-btn" id="settingsCloseBtn">✕</button>
+            </div>
+            <div class="settings-body">
+                <!-- 预设选择器 -->
+                <div class="settings-field">
+                    <label for="presetSelector">当前预设 <span class="preset-dirty-hint" id="presetDirtyHint" style="display:none;">● 未保存</span></label>
+                    <div class="preset-selector-row">
+                        <select id="presetSelector">
+                            <option value="">-- 选择预设 --</option>
+                        </select>
+                        <span class="active-preset-badge" id="activePresetBadge" style="display:none;">✅ 使用中</span>
+                    </div>
+                </div>
+
+                <!-- 快捷预设：新建 / 切换 -->
+                <div class="settings-field">
+                    <label>快捷预设</label>
+                    <div class="preset-template-row">
+                        <button type="button" class="preset-template-btn" data-template="doubao">🫘 豆包（火山方舟）</button>
+                        <button type="button" class="preset-template-btn" data-template="deepseek">🐋 DeepSeek</button>
+                    </div>
+                    <p class="settings-tip">点一下会新建（或切到）对应的预设，地址和模型名自动填好，你只需再填自己的 Key。</p>
+                </div>
+
+                <!-- 预设名称 -->
+                <div class="settings-field">
+                    <label for="presetNameInput">预设名称</label>
+                    <input type="text" id="presetNameInput" placeholder="给这套配置起个名字，如：豆包、DeepSeek、GPT-4...">
+                </div>
+
+                <!-- API Key -->
+                <div class="settings-field">
+                    <label for="apiKeyInput">API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="输入你的 API Key..." autocomplete="off">
+                    <button class="toggle-password-btn" id="togglePasswordBtn" title="显示/隐藏">👁️</button>
+                </div>
+
+                <!-- API 协议 -->
+                <div class="settings-field">
+                    <label for="providerSelect">接口协议</label>
+                    <select id="providerSelect">
+                        <option value="">自动识别（按 API URL 判断）</option>
+                        <option value="ark">火山方舟 Ark · Responses 格式</option>
+                        <option value="openai">OpenAI 兼容 · chat/completions</option>
+                    </select>
+                    <p class="settings-tip">豆包选 Ark；DeepSeek / OpenAI / Kimi / 通义 等选 OpenAI 兼容。不确定就用自动识别。</p>
+                </div>
+
+                <!-- API URL -->
+                <div class="settings-field">
+                    <label for="apiUrlInput">API URL</label>
+                    <input type="text" id="apiUrlInput" placeholder="https://api.deepseek.com/chat/completions">
+                </div>
+
+                <!-- 模型名称 -->
+                <div class="settings-field">
+                    <label for="modelNameInput">模型名称</label>
+                    <input type="text" id="modelNameInput" placeholder="deepseek-flash">
+                </div>
+
+                <!-- 多模态开关 -->
+                <div class="settings-checkbox-row">
+                    <label class="settings-checkbox" for="supportsVisionInput">
+                        <input type="checkbox" id="supportsVisionInput">
+                        <span>该模型支持图片输入（多模态）</span>
+                    </label>
+                    <p class="settings-tip">DeepSeek 的 deepseek-flash 支持图片，deepseek-v4-pro 不支持。不勾选时上传的图片不会发给模型。</p>
+                </div>
+
+                <!-- 系统提示词 -->
+                <div class="settings-field">
+                    <label for="systemPromptInput">系统提示词</label>
+                    <textarea id="systemPromptInput" rows="3" placeholder="你是一个智能AI助手..."></textarea>
+                </div>
+
+                <p class="settings-hint">
+                    Key 只保存在你自己这台电脑的浏览器里，不会上传到服务器。
+                    选一个预设 → 改下面的配置 → 点「保存并使用」立即生效。
+                    <button type="button" class="link-btn" id="clearStoredKeyBtn">清除本机保存的 Key</button>
+                </p>
+            </div>
+            <div class="settings-footer">
+                <button class="settings-delete-btn" id="settingsDeleteBtn" title="删除当前选中的预设">🗑️ 删除</button>
+                <div class="settings-footer-right">
+                    <button class="settings-saveas-btn" id="settingsSaveAsBtn">另存为新预设</button>
+                    <button class="settings-update-btn" id="settingsUpdateBtn">更新预设</button>
+                    <button class="settings-use-btn" id="settingsUseBtn">✅ 保存并使用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}?v=4"></script>
+</body>
+</html>
